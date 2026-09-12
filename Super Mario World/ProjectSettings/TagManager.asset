@@ -7,6 +7,10 @@ TagManager:
   - Escada Anim
   - Agua Anim
   - MarioMap
+  - Borda
+  - Barricada
+  - Koopa
+  - Casco
   layers:
   - Default
   - TransparentFX
@@ -15,9 +19,9 @@ TagManager:
   - Water
   - UI
   - Chao
-  - 
-  - 
-  - 
+  - Cogumelo Verde
+  - Cogumelo Vermelho
+  - Coin
   - 
   - 
   - 

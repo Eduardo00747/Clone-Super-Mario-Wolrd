@@ -24,6 +24,12 @@ public class MarioController : MonoBehaviour
     [Tooltip("Fator de desaceleração ao derrapar (menores valores fazem derrapar por mais tempo).")]
     [SerializeField] private float desaceleracaoDerrapagem = 12f;
 
+    [Header("Configurações de Morte")]
+    [Tooltip("Força do pequeno pulo que o Mario dá ao morrer.")]
+    [SerializeField] private float forcaPuloMorte = 12f;
+    [Tooltip("Som reproduzido quando o Mario morre.")]
+    [SerializeField] private AudioClip somMorte;
+
     [Header("Detecção de Chão")]
     [Tooltip("Transform posicionado nos pés do Mario para checar colisão.")]
     [SerializeField] private Transform detectorChao;
@@ -36,7 +42,6 @@ public class MarioController : MonoBehaviour
     [Tooltip("Arraste o componente Animator do Mario para cá.")]
     public Animator marioAnimator;
 
-    
     [Header("Efeitos de Áudio")]
     [Tooltip("Som reproduzido ao realizar o pulo normal (Space).")]
     [SerializeField] private AudioClip somPuloNormal;
@@ -45,12 +50,17 @@ public class MarioController : MonoBehaviour
 
     // Componentes internos
     private Rigidbody2D rb;
+    private BoxCollider2D boxCollider;
     private SpriteRenderer spriteRenderer;
     private AudioSource audioSource;
     private float movimentoHorizontal;
-    private bool estaAbaixado;
+    [SerializeField] private bool estaAbaixado;
     private bool olhandoParaCima;
     private bool estaNoChao;
+
+    // Controle de estado de vida
+    [SerializeField] private bool estaMorto = false;
+    public bool EstaMorto => estaMorto;
 
     // Controle de Corrida e Derrapagem
     private bool estaSegurandoCorrida; // Se está apertando a tecla K
@@ -70,6 +80,9 @@ public class MarioController : MonoBehaviour
         // Pega automaticamente o componente Rigidbody2D anexado ao Mario
         rb = GetComponent<Rigidbody2D>();
 
+        // Pega automaticamente o componente BoxCollider2D anexado ao Mario
+        boxCollider = GetComponent<BoxCollider2D>();
+
         // Pega automaticamente o SpriteRenderer anexado ao Mario
         spriteRenderer = GetComponent<SpriteRenderer>();
 
@@ -82,6 +95,9 @@ public class MarioController : MonoBehaviour
 
     void Update()
     {
+        // Se o Mario estiver morto, cancela a leitura de entradas e o controle normal
+        if (estaMorto) return;
+
         // Checa se o Mario está tocando o chão a cada frame
         ChecarChao();
 
@@ -100,8 +116,67 @@ public class MarioController : MonoBehaviour
 
     void FixedUpdate()
     {
+        // Se estiver morto, não executa a movimentação física padrão
+        if (estaMorto) return;
+
         // Executa a movimentação física de forma constante
         MoverMario();
+    }
+
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        // Se colidir com um objeto de Tag "Koopa" e ainda não estiver morto
+        if (collision.gameObject.CompareTag("Koopa") && !estaMorto)
+        {
+            ExecutarMorte();
+        }
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        // Garante a detecção caso o Collider do Koopa esteja configurado como Trigger
+        if (collision.CompareTag("Koopa") && (collision.CompareTag("Abismo") && !estaMorto))
+        {
+            ExecutarMorte();
+        }
+    }
+
+    private void ExecutarMorte()
+    {
+        estaMorto = true;
+
+        // 1. Desativa o Box Collider 2D para que o Mario atravesse o chão e cenários ao cair
+        if (boxCollider != null)
+        {
+            boxCollider.enabled = false;
+        }
+
+        // 2. Zera as velocidades atuais do Rigidbody2D
+        rb.velocity = Vector2.zero;
+
+        // 3. Aplica o pulo de morte (pulo clássico do Mario morrendo)
+        rb.AddForce(Vector2.up * forcaPuloMorte, ForceMode2D.Impulse);
+
+        // 4. Toca o som de morte se configurado
+        TocarSom(somMorte);
+
+        // 5. Aciona a animação de morte (Seta a bool "isDie" no Animator)
+        if (marioAnimator != null)
+        {
+            marioAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
+
+            marioAnimator.SetBool("isIdle", false);
+            marioAnimator.SetBool("isWalk", false);
+            marioAnimator.SetBool("isRun", false);
+            marioAnimator.SetBool("isDown", false);
+            marioAnimator.SetBool("lookUp", false);
+            marioAnimator.SetBool("isJump", false);
+            marioAnimator.SetBool("isJumpRun", false);
+            marioAnimator.SetBool("isAtack", false);
+            marioAnimator.SetBool("isSkid", false);
+
+            marioAnimator.SetBool("isDie", true);
+        }
     }
 
     private void ChecarChao()
